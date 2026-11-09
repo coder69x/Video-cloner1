@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Video Clone AI</title>
+<style>
+:root{color-scheme:dark}*{box-sizing:border-box}body{margin:0;background:#0e1220;color:#f6f7fb;font-family:Arial,sans-serif}
+main{max-width:760px;margin:28px auto;padding:26px;background:#151e35;border:1px solid #293653;border-radius:22px}
+h1{font-size:32px;margin:0 0 10px}p{color:#b8c3d8;line-height:1.6}.hint{font-size:14px}
+label{display:block;font-weight:700;margin:20px 0 9px}
+input,select{width:100%;padding:15px;border:1px solid #40506d;border-radius:12px;background:#0e172b;color:white;font-size:16px}
+.filebox{border:2px dashed #536482;padding:25px;text-align:center;border-radius:14px;background:#101a30}
+button{margin-top:22px;width:100%;padding:17px;border:0;border-radius:12px;background:#e8324b;color:white;font-size:18px;font-weight:700}
+button:disabled{opacity:.55}#status{margin-top:20px;line-height:1.6;white-space:pre-wrap;color:#f5c84b}
+.progress{height:10px;background:#28344d;border-radius:20px;overflow:hidden;margin-top:12px}.bar{height:100%;width:0;background:#35c78a;transition:width .4s}
+a{color:#70c9ff;font-weight:700}small{color:#aab6ca}.warning{margin-top:18px;padding:13px;border-radius:10px;background:#30291b;color:#f6d58b;font-size:13px;line-height:1.5}
+@media(max-width:600px){main{margin:10px;padding:19px;border-radius:16px}h1{font-size:27px}}
+</style></head>
+<body><main>
+<h1>🎬 Video Clone AI</h1>
+<p>Video upload karo aur ek click mein nayi original narration ke saath 1080p video banao.</p>
+<label for="video">Upload your video (maximum 30 minutes)</label>
+<div class="filebox"><input id="video" type="file" accept=".mp4,.mov,.m4v,.webm,video/*"><small>MP4 / MOV / M4V / WebM · default max file size 500 MB</small></div>
+<label for="language">Output language</label>
+<select id="language"><option>Hindi</option><option>English</option><option>Hinglish</option><option>Urdu</option><option>Bengali</option><option>Tamil</option><option>Telugu</option><option>Marathi</option></select>
+<label for="style">Script style</label>
+<select id="style"><option>engaging explainer</option><option>documentary narration</option><option>educational</option><option>storytelling</option><option>news explainer</option><option>motivational</option></select>
+<button id="go">✨ Clone Video</button>
+<div class="progress"><div class="bar" id="bar"></div></div>
+<div id="status" aria-live="polite"></div>
+<div class="warning">Upload only a video you own or have permission to adapt. This tool creates a new script and AI voice; it does not clone another person's voice. A 30-minute 1080p render may exceed the limits of low-cost hosting.</div>
+</main>
+<script>
+const go=document.getElementById('go'), fileInput=document.getElementById('video'), statusBox=document.getElementById('status'), bar=document.getElementById('bar');
+let polling=null;
+go.addEventListener('click',async()=>{
+ const file=fileInput.files[0];
+ if(!file){statusBox.textContent='Pehle video select karo.';return}
+ if(file.size>500*1024*1024){statusBox.textContent='File 500 MB se badi hai. Chhoti/compressed file upload karo.';return}
+ go.disabled=true;bar.style.width='2%';statusBox.textContent='Video upload ho raha hai...';
+ const form=new FormData();form.append('video',file);form.append('language',document.getElementById('language').value);form.append('style',document.getElementById('style').value);
+ try{
+  const response=await fetch('/api/clone',{method:'POST',body:form});
+  const data=await response.json();if(!response.ok)throw new Error(data.detail||'Upload failed');
+  statusBox.textContent='Upload complete. Processing shuru...';
+  polling=setInterval(async()=>{
+   try{
+    const r=await fetch('/api/jobs/'+data.job_id);const j=await r.json();
+    if(!r.ok)throw new Error(j.detail||'Status check failed');
+    bar.style.width=(j.progress||0)+'%';statusBox.textContent=(j.message||'Processing...')+' ('+(j.progress||0)+'%)';
+    if(j.status==='completed'){clearInterval(polling);statusBox.innerHTML='✅ Video ready! <a href="'+j.output+'">Download 1080p video</a> · <a href="/api/jobs/'+data.job_id+'/script">Download script</a>';go.disabled=false}
+    if(j.status==='failed'){clearInterval(polling);statusBox.textContent='❌ Error: '+(j.error||j.message);go.disabled=false}
+   }catch(e){clearInterval(polling);statusBox.textContent='Error: '+e.message;go.disabled=false}
+  },3000);
+ }catch(e){statusBox.textContent='Error: '+e.message;go.disabled=false}
+});
+</script></body></html>
